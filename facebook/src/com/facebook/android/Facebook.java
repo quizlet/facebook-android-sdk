@@ -531,9 +531,13 @@ public class Facebook {
         @Override
         public void onServiceDisconnected(ComponentName arg) {
             serviceListener.onError(new Error("Service disconnected"));
-            // We returned an error so there's no point in
-            // keeping the binding open.
-            applicationsContext.unbindService(TokenRefreshServiceConnection.this);
+            try {
+                // We returned an error so there's no point in
+                // keeping the binding open.
+                applicationsContext.unbindService(TokenRefreshServiceConnection.this);
+            } catch (IllegalArgumentException ex) {
+                // Do nothing, the connection was already unbound
+            }
         }
 
         private void refreshToken() {
@@ -1195,32 +1199,6 @@ public class Facebook {
     @Deprecated
     public static String getAttributionId(ContentResolver contentResolver) {
         return Settings.getAttributionId(contentResolver);
-    }
-
-    /**
-     * Get the auto install publish setting.  If true, an install event will be published during authorize(), unless
-     * it has occurred previously or the app does not have install attribution enabled on the application's developer
-     * config page.
-     * <p/>
-     * This method is deprecated.  See {@link Facebook} and {@link Settings} for more info.
-     *
-     * @return a Boolean indicating whether installation of the app should be auto-published.
-     */
-    @Deprecated
-    public boolean getShouldAutoPublishInstall() {
-        return Settings.getShouldAutoPublishInstall();
-    }
-
-    /**
-     * Sets whether auto publishing of installs will occur.
-     * <p/>
-     * This method is deprecated.  See {@link Facebook} and {@link Settings} for more info.
-     *
-     * @param value a Boolean indicating whether installation of the app should be auto-published.
-     */
-    @Deprecated
-    public void setShouldAutoPublishInstall(boolean value) {
-        Settings.setShouldAutoPublishInstall(value);
     }
 
     /**

@@ -147,7 +147,6 @@ public class Session implements Serializable {
     private volatile Bundle authorizationBundle;
     private final List<StatusCallback> callbacks;
     private Handler handler;
-    private AutoPublishAsyncTask autoPublishAsyncTask;
     // This is the object that synchronizes access to state and tokenInfo
     private final Object lock = new Object();
     private TokenCachingStrategy tokenCachingStrategy;
@@ -551,8 +550,6 @@ public class Session implements Serializable {
             state = SessionState.OPENED;
             this.postStateChange(oldState, state, null);
         }
-
-        autoPublishAsync();
     }
 
     /**
@@ -1152,8 +1149,6 @@ public class Session implements Serializable {
 
         request.setApplicationId(applicationId);
 
-        autoPublishAsync();
-
         logAuthorizationStart();
 
         started = tryLoginActivity(request);
@@ -1672,9 +1667,13 @@ public class Session implements Serializable {
         public void onServiceDisconnected(ComponentName arg) {
             cleanup();
 
-            // We returned an error so there's no point in
-            // keeping the binding open.
-            staticContext.unbindService(TokenRefreshRequest.this);
+            try {
+                // We returned an error so there's no point in
+                // keeping the binding open.
+                staticContext.unbindService(TokenRefreshRequest.this);
+            } catch (IllegalArgumentException ex) {
+                // Do nothing, the connection was already unbound
+            }
         }
 
         private void cleanup() {
@@ -1741,6 +1740,12 @@ public class Session implements Serializable {
      * @see Session#open open
      */
     public interface StatusCallback {
+        /**
+         * The function that is called when status of the session changes.
+         * @param session   The session that was updated.
+         * @param state     The new state of the session.
+         * @param exception The exception that is related to state change, may be null.
+         */
         public void call(Session session, SessionState state, Exception exception);
     }
 
@@ -1823,57 +1828,6 @@ public class Session implements Serializable {
         public void startActivityForResult(Intent intent, int requestCode);
 
         public Activity getActivityContext();
-    }
-
-    @SuppressWarnings("deprecation")
-    private void autoPublishAsync() {
-        AutoPublishAsyncTask asyncTask = null;
-        synchronized (this) {
-            if (autoPublishAsyncTask == null && Settings.getShouldAutoPublishInstall()) {
-                // copy the application id to guarantee thread safety against our container.
-                String applicationId = Session.this.applicationId;
-
-                // skip publish if we don't have an application id.
-                if (applicationId != null) {
-                    asyncTask = autoPublishAsyncTask = new AutoPublishAsyncTask(applicationId, staticContext);
-                }
-            }
-        }
-
-        if (asyncTask != null) {
-            asyncTask.execute();
-        }
-    }
-
-    /**
-     * Async implementation to allow auto publishing to not block the ui thread.
-     */
-    private class AutoPublishAsyncTask extends AsyncTask<Void, Void, Void> {
-        private final String mApplicationId;
-        private final Context mApplicationContext;
-
-        public AutoPublishAsyncTask(String applicationId, Context context) {
-            mApplicationId = applicationId;
-            mApplicationContext = context.getApplicationContext();
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            try {
-                Settings.publishInstallAndWaitForResponse(mApplicationContext, mApplicationId, true);
-            } catch (Exception e) {
-                Utility.logd("Facebook-publish", e);
-            }
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void result) {
-            // always clear out the publisher to allow other invocations.
-            synchronized (Session.this) {
-                autoPublishAsyncTask = null;
-            }
-        }
     }
 
     /**

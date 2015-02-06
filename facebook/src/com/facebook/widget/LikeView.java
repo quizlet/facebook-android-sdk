@@ -19,6 +19,7 @@ package com.facebook.widget;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.TypedArray;
@@ -327,7 +328,7 @@ public class LikeView extends FrameLayout {
     }
 
     /**
-     * Sets an OnErrorListener for this instance of LoginButton to call into when
+     * Sets an OnErrorListener for this instance of LikeView to call into when
      * certain exceptions occur.
      *
      * @param onErrorListener The listener object to set
@@ -337,7 +338,7 @@ public class LikeView extends FrameLayout {
     }
 
     /**
-     * Returns the current OnErrorListener for this instance of LoginButton.
+     * Returns the current OnErrorListener for this instance of LikeView.
      *
      * @return The OnErrorListener
      */
@@ -464,8 +465,20 @@ public class LikeView extends FrameLayout {
 
     private void toggleLike() {
         if (likeActionController != null) {
-            Activity activity = (Activity)getContext();
-            likeActionController.toggleLike(activity, getAnalyticsParameters());
+            Context context = getContext();
+            Activity activity = null;
+            if (context instanceof Activity) {
+                activity = (Activity)context;
+            } else if (context instanceof ContextWrapper) {
+                Context baseContext = ((ContextWrapper) context).getBaseContext();
+                if (baseContext instanceof Activity) {
+                    activity = (Activity)baseContext;
+                }
+            }
+
+            if (activity != null) {
+                likeActionController.toggleLike(activity, getAnalyticsParameters());
+            }
         }
     }
 
